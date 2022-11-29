@@ -9,14 +9,14 @@ CREATE TABLE IF NOT EXISTS eid_types (
 CREATE TABLE IF NOT EXISTS issuing_authorities (
     ia_id SERIAL PRIMARY KEY,
     ia_code VARCHAR NOT NULL,
-    ia_name VARCHAR NOT NULL UNIQUE
+    ia_name VARCHAR NOT NULL
 );
 
 
 -- документ абитуриента, удостоверяющий личность
 CREATE TABLE IF NOT EXISTS entrant_identity_documents (
     eid_id SERIAL PRIMARY KEY,
-    eid_type SMALLINT NOT NULL DEFAULT 0
+    eid_type SMALLINT NOT NULL DEFAULT 1
         REFERENCES eid_types(id),
     eid_serial VARCHAR,
     eid_number VARCHAR NOT NULL,
