@@ -40,6 +40,17 @@ AS $$
     SELECT floor(($1 + ($2 - $1 + 1) * random()))::INTEGER;
 $$ LANGUAGE SQL;
 
+CREATE OR REPLACE FUNCTION random_gender()
+    RETURNS CHAR
+AS $$
+    DECLARE
+        gender_set VARCHAR = 'ММЖ';
+    BEGIN
+        RETURN substring(gender_set from random_in_range(1, 3) for 1);
+    END;
+$$ LANGUAGE plpgsql;
+
+
 CREATE OR REPLACE FUNCTION random_in_range(BIGINT, BIGINT)
     RETURNS BIGINT
 AS $$
@@ -52,67 +63,126 @@ AS $$
     SELECT $1 + floor(($2 - $1 + 1) * random())::INTEGER;
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION generate_full_name()
-    RETURNS TABLE (
-        lastname VARCHAR,
-        firstname VARCHAR,
-        midname VARCHAR)
+
+CREATE OR REPLACE FUNCTION generate_email()
+    RETURNS VARCHAR
 AS $$
+    DECLARE
+        email_len SMALLINT;
+        email VARCHAR = '';
+        domain VARCHAR = '@mai.edu';
+        alphabet VARCHAR = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ123456789';
     BEGIN
-        SELECT name INTO firstname FROM _names
-        WHERE id = (SELECT random_in_range(1, 207));
-
-        SELECT _midnames.midname INTO midname FROM _midnames
-        WHERE id = (SELECT random_in_range(1, 619));
-
-        SELECT _lastnames.lastname INTO lastname FROM _lastnames
-        WHERE id = (SELECT random_in_range(1, 1080));
-
-        RETURN NEXT;
+        email_len = (SELECT random_in_range(5, 20));
+        WHILE length(email) < email_len LOOP
+            email = concat(email, substring(alphabet from random_in_range(1, 61) for 1));
+        END LOOP;
+        RETURN concat(email, domain);
     END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE FUNCTION generate_education_document()
-    RETURNS TABLE (eed_type SMALLINT,
-                   eed_serial VARCHAR,
-                   eed_number VARCHAR,
-                   eed_issued_by INTEGER,
-                   eed_issue_day DATE,
-                   eed_original_of_eed BOOLEAN)
+CREATE OR REPLACE FUNCTION generate_entrant_identity_documents(size INTEGER)
+RETURNS VOID
 AS $$
+    DECLARE
+        i INTEGER = 0;
     BEGIN
-        eed_type = 1;
-        SELECT random_in_range(1000000, 9999999) INTO eed_number;
-        SELECT random_in_range(1, 1290) INTO eed_issued_by;
-        SELECT random_date_in_range('2021-01-01', '2022-08-01') INTO eed_issue_day;
-        SELECT CAST(random_in_range(0, 1) AS BOOLEAN) INTO eed_original_of_eed;
-        RETURN NEXT;
+        WHILE i < size LOOP
+            INSERT INTO entrant_identity_documents (eid_type, eid_serial, eid_number, eid_issued_by, eid_issue_day)
+            VALUES (
+                    1,
+                    random_in_range(1000, 9999),
+                    random_in_range(100000, 999999),
+                    random_in_range(1, 16496),
+                    random_date_in_range('2017-01-01', '2018-12-31')
+                   );
+            i = i + 1;
+            END LOOP;
     END;
 $$ LANGUAGE plpgsql;
 
 
-CREATE OR REPLACE FUNCTION generate_identity_document()
-    RETURNS TABLE (eid_type SMALLINT,
-                   eid_serial VARCHAR,
-                   eid_number VARCHAR,
-                   eid_issued_by INTEGER,
-                   eid_issue_day DATE)
+CREATE OR REPLACE FUNCTION generate_entrant_education_documents(size INTEGER)
+RETURNS VOID
 AS $$
+    DECLARE
+        i INTEGER = 0;
     BEGIN
-        eid_type = 1;
-        SELECT random_in_range(1000, 9999) INTO eid_serial;
-        SELECT random_in_range(100000, 999999) INTO eid_number;
-        SELECT random_in_range(1, 16496) INTO eid_issued_by;
-        SELECT random_date_in_range('2017-01-01', '2018-12-31') INTO eid_issue_day;
-        RETURN NEXT;
+        WHILE i < size LOOP
+            INSERT INTO entrant_education_documents (eed_type, eed_serial, eed_number, eed_issued_by, eed_issue_day, eed_original_of_eed)
+            VALUES (
+                    1,
+                    NULL,
+                    random_in_range(10000000, 99999999),
+                    random_in_range(1, 1290),
+                    random_date_in_range('2021-01-01', '2022-08-01'),
+                    CAST(random_in_range(0, 1) AS BOOLEAN)
+                   );
+            i = i + 1;
+            END LOOP;
     END;
 $$ LANGUAGE plpgsql;
 
-SELECT lastname, firstname, midname, eid_type_name, eid_serial, eid_number, ia_code, ia_name, eid_issue_day FROM generate_full_name(), generate_identity_document()
-    JOIN issuing_authorities on eid_issued_by = issuing_authorities.ia_id
-    JOIN eid_types on eid_type = eid_types.id;
 
-SELECT eed_type_name, eed_serial, eed_number, io_name, eed_issue_day, eed_original_of_eed FROM generate_education_document()
-    JOIN eed_issuing_organizations on eed_issued_by = eed_issuing_organizations.id
-    JOIN eed_types on eed_type = eed_types.id;
+CREATE OR REPLACE FUNCTION generate_entrants(size INTEGER)
+RETURNS VOID
+AS $$
+    DECLARE
+        i INTEGER = 1;
+    BEGIN
+        WHILE i <= size LOOP
+            INSERT INTO entrants (e_first_name,
+                                  e_mid_name,
+                                  e_last_name,
+                                  e_gender,
+                                  e_birthday,
+                                  e_email,
+                                  e_mobile_phone,
+                                  e_identity_document_id,
+                                  e_education_document_id)
+            VALUES (
+                    (SELECT name FROM _names
+                    WHERE id = (SELECT random_in_range(1, 207))),
+                    (SELECT midname FROM _midnames
+                    WHERE id = (SELECT random_in_range(1, 619))),
+                    (SELECT lastname FROM _lastnames
+                    WHERE id = (SELECT random_in_range(1, 1080))),
+                    random_gender(),
+                    random_date_in_range('2002-01-01', '2004-12-31'),
+                    generate_email(),
+                    '+74991584977',
+                    i,
+                    i
+                   );
+            i = i + 1;
+            END LOOP;
+    END;
+$$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION generate_entrant_data(size INTEGER)
+RETURNS VOID
+AS $$
+    BEGIN
+        truncate table entrants restart identity cascade;
+        truncate table entrant_identity_documents restart identity cascade;
+        truncate table entrant_education_documents restart identity cascade;
+        PERFORM generate_entrant_education_documents(size);
+        PERFORM generate_entrant_identity_documents(size);
+        PERFORM generate_entrants(size);
+    END;
+$$ LANGUAGE plpgsql;
+
+SELECT generate_entrant_data(10000);
+
+
+CREATE OR REPLACE VIEW v_entrants AS
+SELECT e_last_name, e_first_name, e_mid_name, e_gender, e_birthday, e_email, e_mobile_phone, eid_type_name, eid_serial, eid_number, ia_code, ia_name, eid_issue_day, eed_type_name, eed_serial, eed_number, eed_issue_day, io_name, eed_original_of_eed
+FROM entrants
+    JOIN entrant_education_documents eed on eed.eed_id = entrants.e_education_document_id
+    JOIN entrant_identity_documents eid on eid.eid_id = entrants.e_identity_document_id
+    JOIN eed_issuing_organizations eio on eio.id = eed.eed_issued_by
+    JOIN eed_types et on et.id = eed.eed_type
+    JOIN eid_types e on e.id = eid.eid_type
+    JOIN issuing_authorities ia on ia.ia_id = eid.eid_issued_by;

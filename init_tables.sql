@@ -63,11 +63,11 @@ CREATE TABLE IF NOT EXISTS entrants (
     e_gender CHAR NOT NULL,
     e_birthday DATE NOT NULL,
     e_email VARCHAR NOT NULL UNIQUE,
-    e_mobile_phone VARCHAR NOT NULL UNIQUE,
+    e_mobile_phone VARCHAR NOT NULL,
     e_identity_document_id INTEGER NOT NULL
-        UNIQUE REFERENCES entrant_identity_documents(eid_id),
+        REFERENCES entrant_identity_documents(eid_id),
     e_education_document_id INTEGER NOT NULL
-        UNIQUE REFERENCES entrant_education_documents(eed_id)
+        REFERENCES entrant_education_documents(eed_id)
 );
 
 
